@@ -1,5 +1,6 @@
 using System.Linq;
 using JetBrains.Annotations;
+using TMPro;
 using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.UI;
@@ -48,14 +49,17 @@ public class ArtCard : MonoBehaviour
         SelectedCard selectedCard = FindFirstObjectByType<SelectedCard>();
 
                 ChangeColor(Color.white);
-            
-        
+        this.GetComponentInChildren<TextMeshProUGUI>().color = Color.black;
+
+
     }
 
 
     public void ChangeColor(Color color)
     {
         this.gameObject.GetComponent<Image>().color = color;
+
+        this.GetComponentInChildren<TextMeshProUGUI>().color = Color.white;   
     }
 
    

@@ -7,13 +7,12 @@ using UnityEngine.UI;
 
 public class ArtCard : MonoBehaviour
 {
-    public string idArtCard;
-    
+    public string selected;
 
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
-        
+        selected = FindFirstObjectByType<GameManager>().selectedLabel;
     }
 
     // Update is called once per frame
@@ -22,44 +21,37 @@ public class ArtCard : MonoBehaviour
       
     }
 
+    //When I select the museum or the art work from the InventoryPanel
     public void SelectArtCard()
     {
-        SelectedCard selectedCard = FindFirstObjectByType<SelectedCard>();
-        if (selectedCard.idSelectedCard != "")
-        {
-            GameManager gameManager = FindFirstObjectByType<GameManager>();
-            gameManager.SelectBoxWithId();
+        selected = FindFirstObjectByType<GameManager>().selectedLabel;
 
-            foreach (ArtCard artCard in FindObjectsByType<ArtCard>(FindObjectsSortMode.None))
+        //I skip the following "if" only the first time I select something from the InventoryPanel
+        if (selected!="")
+        {
+            foreach (ArtCard card in FindObjectsByType<ArtCard>(FindObjectsSortMode.None))
             {
-                if (artCard.idArtCard == selectedCard.idSelectedCard)
+                if (card.gameObject.name == selected)
                 {
-                    artCard.DeselectArtCard();
+                    FindFirstObjectByType<GameManager>().DeselectBoxWithString(selected);
+                    card.ChangeColor(Color.black);
                 }
             }
         }
-                    selectedCard.idSelectedCard = this.idArtCard;
-                    ChangeColor(Color.gray);
-
-                
+        
+        {
+            FindFirstObjectByType<GameManager>().selectedLabel = this.name;
+            bool check;
+            check= (this.GetComponentInParent<PanelRight>() != null) ? true : false;
+            FindFirstObjectByType<GameManager>().SelectBoxWithString(check);
+            this.ChangeColor(Color.blue);
+        }
     }
 
-    public void DeselectArtCard()
-    {
-        SelectedCard selectedCard = FindFirstObjectByType<SelectedCard>();
-
-                ChangeColor(Color.white);
-        this.GetComponentInChildren<TextMeshProUGUI>().color = Color.black;
-
-
-    }
-
-
+    //if the artWork or Museum are selected their text is blue, otherwise it's black
     public void ChangeColor(Color color)
     {
-        this.gameObject.GetComponent<Image>().color = color;
-
-        this.GetComponentInChildren<TextMeshProUGUI>().color = Color.white;   
+        GetComponent<TextMeshProUGUI>().color = color;   
     }
 
    

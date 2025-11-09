@@ -3,6 +3,8 @@ using UnityEngine.UI;
 using UnityEngine.EventSystems;
 using System.Collections.Generic;
 
+
+//this script was made by ChatGpt -> it change the cursor when I'
 public class UICursorManager : MonoBehaviour
 {
     public Texture2D cursorTexture;

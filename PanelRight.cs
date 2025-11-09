@@ -1,8 +1,7 @@
 using UnityEngine;
 
-public class SelectedCard : MonoBehaviour
+public class PanelRight : MonoBehaviour
 {
-    public string idSelectedCard;
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {

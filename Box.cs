@@ -4,38 +4,25 @@ using System.Collections;
 using UnityEngine.Networking;
 using NUnit.Framework;
 using System.Collections.Generic;
-
-[Serializable]
-public class ArtWorkJson 
+public enum StatusEnum
 {
-    
-    public string id;
-    public string nome;
-    public string autore;
-    public string anno;
-    public bool in_prestito;
-    public bool in_magazzino;
+    storehouse,
+    inShipment,
+    museum,
+
 }
+
 
 [Serializable]
 public class ArtWork
 {
-    public string id;
-    public string artWorkName;
-    public string artWorkAuthor;
-    public string dateOfArt;
-    public bool onLoan;
-    public bool inStoreHouse;
+    public string _id;
+    public string artName;
+    public string artistName;
+    public int year;
+    public string status;
+    public string loanedTo;
 
-    public void MapFromJson(ArtWorkJson json)
-    {
-        id = json.id;
-        artWorkName = json.nome;
-        artWorkAuthor = json.autore;
-        dateOfArt = json.anno;
-        onLoan = json.in_prestito;
-        inStoreHouse = json.in_magazzino;
-    }
 }
 [Serializable]
 public class Iot
@@ -49,14 +36,14 @@ public class Iot
 }
 
 [Serializable]
-public class MuseumContentJson
+public class MuseumArtWorks
 {
     public int count;
-    public List<ArtWorkJson> artworks;
+    public List<ArtWork> artworks;
 }
 
 [Serializable]
-public class IotContent
+public class MuseumIoT
 {
     public int count; 
     public List<Iot> iot_data;
@@ -81,12 +68,29 @@ public class Box : MonoBehaviour
        
     }
 
-    public void InitializateArtWork(ArtWorkJson artWorkToCopy)
+    public void InitializateArtWork(ArtWork artWorkToCopy)
     {
-        if (artWork == null)
+        
             artWork = new ArtWork();
-        artWork.MapFromJson(artWorkToCopy);
-
+            artWork._id = artWorkToCopy._id;
+            artWork.artName = artWorkToCopy.artName;
+            artWork.artistName = artWorkToCopy.artistName;
+            artWork.year = artWorkToCopy.year;  
+            artWork.status = artWorkToCopy.status;
+            artWork.loanedTo = artWorkToCopy.loanedTo;  
+        
+    }
+    public void InitializateIoT(Iot iotToCopy)
+    {
+        
+            iot = new Iot();
+            iot.id = iotToCopy.id;
+            iot.humidity = iotToCopy.humidity;
+            iot.temperature = iotToCopy.temperature;
+            iot.timestamp = iotToCopy.timestamp;
+            iot.latitude = iotToCopy.latitude;
+            iot.longitude = iotToCopy.longitude;
+        
     }
 
     public void HighlightBox()
@@ -96,13 +100,13 @@ public class Box : MonoBehaviour
 
         mat.EnableKeyword("_EMISSION");
 
-        // prendo la texture base del materiale
+        // add the texture
         Texture mainTex = mat.GetTexture("_MainTex");
 
-        // imposto un colore base per la luce
+        //set color for the light
         Color glowColor = Color.white * 1.5f;
 
-        // attivo l’emissione in modo che usi la texture + il colore
+        // Active emission
         mat.SetTexture("_EmissionMap", mainTex);
         mat.SetColor("_EmissionColor", glowColor);
     }
@@ -112,25 +116,15 @@ public class Box : MonoBehaviour
         MeshRenderer rend = GetComponent<MeshRenderer>();
         Material mat = rend.material;
 
-        // disabilita l’emissione
+        // disable emission
         mat.DisableKeyword("_EMISSION");
 
-        // opzionale: azzera il colore di emissione
+        // set color
         mat.SetColor("_EmissionColor", Color.black);
 
-        // opzionale: rimuovi la texture di emissione
+        // remove the texture
         mat.SetTexture("_EmissionMap", null);
     }
 
-    public void Initialitiate(Iot iotToCopy)
-    {
-        if (iot == null)
-        iot = new Iot();
-        iot.id=iotToCopy.id;
-        iot.humidity=iotToCopy.humidity;    
-        iot.temperature=iotToCopy.temperature;
-        iot.timestamp=iotToCopy.timestamp;
-        iot.latitude=iotToCopy.latitude;    
-        iot.longitude=iotToCopy.longitude;
-    }
+   
 }

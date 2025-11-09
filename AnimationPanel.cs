@@ -1,6 +1,8 @@
 using UnityEngine;
 using System.Collections;
 
+
+//this script was made by ChatGpt :D I use this one, for the animation when I click on the boxes 
 public class PanelAnimationScale : MonoBehaviour
 {
     public RectTransform panelRect;
@@ -33,7 +35,7 @@ public class PanelAnimationScale : MonoBehaviour
     IEnumerator ScaleOut()
     {
         float elapsed = 0f;
-        Vector3 startScale = panelRect.localScale; // potrebbe essere intermedio se l'animazione è stata interrotta
+        Vector3 startScale = panelRect.localScale; 
         while (elapsed < duration)
         {
             elapsed += Time.deltaTime;

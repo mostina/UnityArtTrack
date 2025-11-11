@@ -2,7 +2,9 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using JetBrains.Annotations;
 using TMPro;
+using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.Networking;
@@ -48,12 +50,18 @@ public class GameManager : MonoBehaviour
     //for unlight boxes
     public Box boxClicked;
 
+    //for lerp camera 
+    
+    public Box positionBoxInCamera;
+
 
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
         //I call the function where i have the corutine for getting datas from db 
         FetchArtWorks();
+        positionBoxInCamera.gameObject.transform.position = FindFirstObjectByType<Camera>().gameObject.transform.position+ Vector3.back*2f;
+       
     }
 
     //coroutine for getting artWorks data from db
@@ -64,7 +72,7 @@ public class GameManager : MonoBehaviour
             museumArtContent = result; //it's a list of ArtWorks
 
             //once the coroutine it's done I spawn the boxes
-            SpawnaArtWork();
+            SpawnArtWork();
 
             //and I call the coroutine for the iotdata (it's repeating, cause iot data can change)
             InvokeRepeating(nameof(FetchIotData), 0f, 60f);
@@ -115,7 +123,7 @@ public class GameManager : MonoBehaviour
 
 
     //here I spawn boxes
-    public void SpawnaArtWork()
+    public void SpawnArtWork()
     {
         //here I have the list with all the empty GO I did for the boxes positions
         foreach (Transform transform in FindObjectsByType<Position>(FindObjectsSortMode.None).Select(p => p.gameObject.transform))
@@ -146,14 +154,18 @@ public class GameManager : MonoBehaviour
     void Update()
     {
         //right click -> hide info panel if it is active and I unhighlight the box I just checked
-            if (Input.GetMouseButtonDown(1))
+            if (Input.GetMouseButtonDown(1)&&panelInfo.activeInHierarchy)
         {
-            if (panelInfo.activeInHierarchy)            {
-                panelInfo.GetComponent<PanelAnimationScale>().HidePanel();
-                boxClicked.UnhighlightBox();
-            }
             
+                StartCoroutine(MoveCameraToBox(positionBoxInCamera, 1f));
+
+
+                boxClicked.UnhighlightBox();
+            panelInfo.GetComponent<PanelAnimationScale>().HidePanel();
+            Resources.FindObjectsOfTypeAll<ButtonInventory>().First().gameObject.SetActive(true);
         }
+            
+        
  //left click -> I do the raycast for checking wich box I clicked and then I open the infoPanel and edit the info
         if (Input.GetMouseButtonDown(0))
         {
@@ -165,7 +177,8 @@ public class GameManager : MonoBehaviour
             {   
                 boxClicked = click.collider.gameObject.GetComponent<Box>();
                 Iot boxClickedIot = click.collider.gameObject.GetComponent<Box>().iot;
-                panelInfo.GetComponent<PanelAnimationScale>().ShowPanel();
+                FindFirstObjectByType<ButtonInventory>().gameObject.SetActive(false);
+                StartCoroutine (MoveCameraToBox(boxClicked,1f));
                 artName.text=boxClicked.artWork.artName;
                 artist.text = boxClicked.artWork.artistName; 
                 year.text = boxClicked.artWork.year.ToString();
@@ -192,34 +205,35 @@ public class GameManager : MonoBehaviour
     }
 
     //when I select a label (artWork or Museum) so I know which boxes I have to HighlightBox()
-    public void SelectBoxWithString(bool check)
+    public void SelectBoxWithString()
     {
             foreach (Box box in boxes)
             {
 
-            string checkString = check ? box.artWork.artName : box.artWork.loanedTo;
-                if (checkString ==selectedLabel)
+            
+                if (selectedLabel!="" &&(box.artWork.artName==selectedLabel||box.artWork.loanedTo==selectedLabel||box.artWork.status ==selectedLabel))
                 {
                         box.HighlightBox();
+                Resources.FindObjectsOfTypeAll<ArtCard>().First(x => x.gameObject.name == selectedLabel).ChangeColor(Color.black);
+                    
                 }
+                
         }
     }
 
     //I call this function when I change selection while my InventoryPanel is opened
-    internal void DeselectBoxWithString(string selected)
+    public void DeselectBoxWithString()
     {
         foreach (Box box in boxes)
         {
-            if (box.artWork.artName == selected || box.artWork.loanedTo == selected)
+            if (box.artWork.artName == selectedLabel || box.artWork.loanedTo == selectedLabel|| box.artWork.status == selectedLabel)
             {
                 box.UnhighlightBox();
             }
-
         }
     }
 
-
-    //Here i create the Labels for museum and artWorks
+    //Here i create the Labels for museum and artWorks when I click on "Inventario" Button
     public void CreateLabels()
     {
         if (artCards.Count == 0)
@@ -246,7 +260,40 @@ public class GameManager : MonoBehaviour
         }
     }
 
+
+    IEnumerator MoveCameraToBox(Box targetBox, float duration)
+{
+    Camera cam = FindFirstObjectByType<Camera>();
+    Vector3 startPos = cam.transform.position;
+    Vector3 endPos = targetBox.gameObject.transform.position - Vector3.back * 2f; // avvicinati un po’ di più
+    float elapsed = 0f;
+
+    while (elapsed < duration)
+    {
+        elapsed += Time.deltaTime;
+        float t = Mathf.SmoothStep(0f, 1f, elapsed / duration); // movimento morbido
+        cam.transform.position = Vector3.Lerp(startPos, endPos, t);
+        yield return null;
+    }
+
+    cam.transform.position = endPos;
+    if (targetBox!=positionBoxInCamera)
+    {
     
+        panelInfo.GetComponent<PanelAnimationScale>().ShowPanel();
+    }
+
+    
+}
+    public void putAllBlack()
+    {
+        foreach (ArtCard card in Resources.FindObjectsOfTypeAll<ArtCard>())
+        {
+            card.ChangeColor(Color.black);
+            card.isBlack = true;
+        }
+    }
+
 }
 
         

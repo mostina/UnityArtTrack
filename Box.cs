@@ -95,36 +95,26 @@ public class Box : MonoBehaviour
 
     public void HighlightBox()
     {
-        MeshRenderer rend = GetComponent<MeshRenderer>();
-        Material mat = rend.material;
+        foreach (MeshRenderer rend in GetComponentsInChildren<MeshRenderer>())
+        {
+            Material mat = rend.material;
+           
+            mat.EnableKeyword("_EMISSION");
 
-        mat.EnableKeyword("_EMISSION");
-
-        // add the texture
-        Texture mainTex = mat.GetTexture("_MainTex");
-
-        //set color for the light
-        Color glowColor = Color.white * 1.5f;
-
-        // Active emission
-        mat.SetTexture("_EmissionMap", mainTex);
-        mat.SetColor("_EmissionColor", glowColor);
+            
+        }
     }
 
     public void UnhighlightBox()
     {
-        MeshRenderer rend = GetComponent<MeshRenderer>();
-        Material mat = rend.material;
+        foreach (MeshRenderer rend in GetComponentsInChildren<MeshRenderer>())
+        {
+            Material mat = rend.material;
+            mat.DisableKeyword("_EMISSION");
 
-        // disable emission
-        mat.DisableKeyword("_EMISSION");
-
-        // set color
-        mat.SetColor("_EmissionColor", Color.black);
-
-        // remove the texture
-        mat.SetTexture("_EmissionMap", null);
+        }
     }
 
-   
+
+
 }

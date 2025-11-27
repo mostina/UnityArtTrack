@@ -2,7 +2,9 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using JetBrains.Annotations;
 using TMPro;
+using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.Networking;
@@ -33,6 +35,7 @@ public class GameManager : MonoBehaviour
     public RectTransform artParent;
     public RectTransform museumParent;
     public string selectedLabel = "";
+    
 
 
     //for instantiate
@@ -48,12 +51,29 @@ public class GameManager : MonoBehaviour
     //for unlight boxes
     public Box boxClicked;
 
+    //for lerp camera - animations
+    public Vector3 startCameraPosition;
+    public Vector3 saveBoxPosition;
+    public Camera cam;
+    public bool inputBlocked ;
 
+    private void Awake()
+    {
+        inputBlocked = false;
+    }
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
         //I call the function where i have the corutine for getting datas from db 
         FetchArtWorks();
+        
+        //I find the camera 
+        cam = FindFirstObjectByType<Camera>();
+
+        //here I save the initial position of camera so I know where to put it back
+        startCameraPosition = cam.gameObject.transform.position;
+
+       
     }
 
     //coroutine for getting artWorks data from db
@@ -64,15 +84,13 @@ public class GameManager : MonoBehaviour
             museumArtContent = result; //it's a list of ArtWorks
 
             //once the coroutine it's done I spawn the boxes
-            SpawnaArtWork();
+            SpawnArtWork();
 
             //and I call the coroutine for the iotdata (it's repeating, cause iot data can change)
             InvokeRepeating(nameof(FetchIotData), 0f, 60f);
 
         }));
     }
-   
-   
 
    //coroutine per richiamare i dati iot dal db 
     public void FetchIotData()
@@ -110,12 +128,11 @@ public class GameManager : MonoBehaviour
         T content = JsonUtility.FromJson<T>(webRequest.downloadHandler.text);
         
         callback?.Invoke(content);
-        
     }
 
 
     //here I spawn boxes
-    public void SpawnaArtWork()
+    public void SpawnArtWork()
     {
         //here I have the list with all the empty GO I did for the boxes positions
         foreach (Transform transform in FindObjectsByType<Position>(FindObjectsSortMode.None).Select(p => p.gameObject.transform))
@@ -123,16 +140,17 @@ public class GameManager : MonoBehaviour
             listPositions.Add(transform);
         }
 
-
         foreach (ArtWork artWork in museumArtContent.artworks)
         {
             if (listPositions.Count > 0)
             {
                 GameObject spawnedbox = Instantiate(boxPrefab, listPositions[0].position, listPositions[0].rotation);
-                spawnedbox.GetComponent<Box>().InitializateArtWork(artWork);
+                spawnedbox.transform.localScale = listPositions[0].transform.localScale;
+                spawnedbox.GetComponentInParent<Box>().UnhighlightBox();
+                spawnedbox.GetComponentInParent<Box>().InitializateArtWork(artWork);
                 listPositions.Remove(listPositions[0]);
                 //I save the box I just spawned in this list of boxes 
-                boxes.Add(spawnedbox.GetComponent<Box>());
+                boxes.Add(spawnedbox.GetComponentInParent<Box>());
 
                 //I save the list of museum I loaned to (only once so I don't have double items
                 if (!loanedPeople.Contains(artWork.loanedTo)&& artWork.loanedTo !="")
@@ -145,81 +163,119 @@ public class GameManager : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
+        
+
         //right click -> hide info panel if it is active and I unhighlight the box I just checked
-            if (Input.GetMouseButtonDown(1))
+        if (Input.GetMouseButtonDown(1)&&panelInfo.activeInHierarchy)
         {
-            if (panelInfo.activeInHierarchy)            {
-                panelInfo.GetComponent<PanelAnimationScale>().HidePanel();
-                boxClicked.UnhighlightBox();
-            }
-            
+            RightClick();
+
         }
- //left click -> I do the raycast for checking wich box I clicked and then I open the infoPanel and edit the info
+
+
+        //left click -> I do the raycast for checking wich box I clicked and then I open the infoPanel and edit the info
         if (Input.GetMouseButtonDown(0))
         {
-            Ray ray = FindFirstObjectByType<Camera>().ScreenPointToRay(Input.mousePosition);
-            RaycastHit click;
-            bool clickedsomething = Physics.Raycast(ray, out click);
-            
-            if (clickedsomething && click.collider.gameObject.GetComponent<Box>()&&!panelInventory.activeSelf&& !panelInfo.activeSelf)
-            {   
-                boxClicked = click.collider.gameObject.GetComponent<Box>();
-                Iot boxClickedIot = click.collider.gameObject.GetComponent<Box>().iot;
-                panelInfo.GetComponent<PanelAnimationScale>().ShowPanel();
-                artName.text=boxClicked.artWork.artName;
-                artist.text = boxClicked.artWork.artistName; 
-                year.text = boxClicked.artWork.year.ToString();
-                temperature.text = boxClickedIot.temperature.ToString()+"° C";
-                humidity.text = boxClickedIot.humidity.ToString() + "%";
-                if (boxClicked.artWork.status==StatusEnum.inShipment.ToString())
-                { status.texture=shippingStatus;
-                    position.text = boxClickedIot.latitude + "° N  "+boxClickedIot.longitude +"° E"+"\n ("+boxClicked.artWork.loanedTo+")";
-                }
-                else if ((boxClicked.artWork.status == StatusEnum.museum.ToString()))
-                {
-                    status.texture = museumStatus;
-                    position.text = boxClicked.artWork.loanedTo;
-                }
-                else
-                {
-                    status.texture = storehouseStatus;
-                    position.text = "IN MAGAZZINO";
-                }
-                    timestamp.text = boxClickedIot.timestamp.ToString();    
-
-            }
+            LeftClick();
         }
     }
 
+    public void RightClick()
+    {
+        panelInfo.GetComponent<PanelAnimationScale>().HidePanel();
+
+        StartCoroutine(PlayAnimations(boxClicked, "close box", () =>
+        {
+            StartCoroutine(MoveBoxForAnimation(boxClicked, VectorPosition(), saveBoxPosition, 1f, () =>
+            {
+                StartCoroutine(MoveCamera(boxClicked, cam.transform.position, startCameraPosition, 1f, () =>
+                {
+                    Resources.FindObjectsOfTypeAll<ButtonInventory>().First().gameObject.SetActive(true);
+                    boxClicked.UnhighlightBox();
+                    inputBlocked = false;
+                }));
+            }));
+        }));
+    }
+
+    public void LeftClick()
+    {
+        if (inputBlocked)
+        { return; }
+        Ray ray = FindFirstObjectByType<Camera>().ScreenPointToRay(Input.mousePosition);
+        RaycastHit click;
+        bool clickedsomething = Physics.Raycast(ray, out click);
+
+        if (clickedsomething && click.collider.gameObject.GetComponentInParent<Box>() && !panelInventory.activeSelf && !panelInfo.activeSelf)
+        {
+            boxClicked = click.collider.gameObject.GetComponentInParent<Box>();
+            Iot boxClickedIot = click.collider.gameObject.GetComponentInParent<Box>().iot;
+            FindFirstObjectByType<ButtonInventory>().gameObject.SetActive(false);
+            inputBlocked = true;
+            StartCoroutine(MoveCamera(boxClicked, startCameraPosition, boxClicked.gameObject.transform.position - Vector3.back * 4f, 1f, () =>
+            {
+                MoveObjectToCenterDisplay(boxClicked);
+                StartCoroutine(PlayAnimations(boxClicked, "move box", () =>
+                {
+                    panelInfo.GetComponent<PanelAnimationScale>().ShowPanel();
+                }));
+            }));
+
+            artName.text = boxClicked.artWork.artName;
+            artist.text = boxClicked.artWork.artistName;
+            year.text = boxClicked.artWork.year.ToString();
+            temperature.text = boxClickedIot.temperature.ToString() + "° C";
+            humidity.text = boxClickedIot.humidity.ToString() + "%";
+            if (boxClicked.artWork.status == StatusEnum.inShipment.ToString())
+            {
+                status.texture = shippingStatus;
+                position.text = boxClickedIot.latitude + "° N  " + boxClickedIot.longitude + "° E" + "\n (" + boxClicked.artWork.loanedTo + ")";
+            }
+            else if ((boxClicked.artWork.status == StatusEnum.museum.ToString()))
+            {
+                status.texture = museumStatus;
+                position.text = boxClicked.artWork.loanedTo;
+            }
+            else
+            {
+                status.texture = storehouseStatus;
+                position.text = "IN MAGAZZINO";
+            }
+            timestamp.text = boxClickedIot.timestamp.ToString();
+
+        }
+    }
+
+
+
     //when I select a label (artWork or Museum) so I know which boxes I have to HighlightBox()
-    public void SelectBoxWithString(bool check)
+    public void SelectBoxWithString()
     {
             foreach (Box box in boxes)
             {
 
-            string checkString = check ? box.artWork.artName : box.artWork.loanedTo;
-                if (checkString ==selectedLabel)
+                if (selectedLabel!="" &&(box.artWork.artName==selectedLabel||box.artWork.loanedTo==selectedLabel||box.artWork.status ==selectedLabel))
                 {
                         box.HighlightBox();
+                Resources.FindObjectsOfTypeAll<ArtCard>().First(x => x.gameObject.name == selectedLabel).ChangeColor(Color.black);  
                 }
+                
         }
     }
 
     //I call this function when I change selection while my InventoryPanel is opened
-    internal void DeselectBoxWithString(string selected)
+    public void DeselectBoxWithString()
     {
         foreach (Box box in boxes)
         {
-            if (box.artWork.artName == selected || box.artWork.loanedTo == selected)
+            if (box.artWork.artName == selectedLabel || box.artWork.loanedTo == selectedLabel|| box.artWork.status == selectedLabel)
             {
                 box.UnhighlightBox();
             }
-
         }
     }
 
-
-    //Here i create the Labels for museum and artWorks
+    //Here i create the Labels for museum and artWorks when I click on "Inventario" Button
     public void CreateLabels()
     {
         if (artCards.Count == 0)
@@ -228,11 +284,8 @@ public class GameManager : MonoBehaviour
             InstantiateLabels(boxes.Select(x=> x.artWork.artName).ToList(), artParent);
             //create labels for museums in panelInfo
             InstantiateLabels(loanedPeople.ToList(), museumParent);
-            
         }
-
     }
-
     //the function for instantiate labels 
     public void InstantiateLabels<T>(List<T> items, RectTransform parent)
     {
@@ -246,7 +299,69 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    
+
+
+        
+    public IEnumerator MoveCamera(Box targetBox, Vector3 startPos, Vector3 endPos, float duration, System.Action callback)
+    {
+        float elapsed = 0f;
+    while (elapsed < duration)
+    {
+        elapsed += Time.deltaTime;
+        float t = Mathf.SmoothStep(0f, 1f, elapsed / duration); // this is for having a better movement
+            cam.transform.position = Vector3.Lerp(startPos, endPos, t);
+            yield return null;
+    }
+    cam.transform.position = endPos;
+        callback?.Invoke();
+    }
+
+   public void MoveObjectToCenterDisplay(Box targetBox)
+    {
+        saveBoxPosition = targetBox.gameObject.transform.position;
+        StartCoroutine(MoveBoxForAnimation(targetBox, targetBox.gameObject.transform.position, VectorPosition(), 1f, () => { }));
+    }
+
+    public Vector3 VectorPosition()
+    {
+        Vector3 screenCenter = new Vector3(Screen.width / 2f, Screen.height / 2f, 0);
+        Vector3 worldCenter = Camera.main.ScreenToWorldPoint(new Vector3(screenCenter.x, screenCenter.y - 3, 3));
+        return worldCenter;
+    }
+
+    public IEnumerator MoveBoxForAnimation(Box targetBox, Vector3 firstPos, Vector3 secondPos, float duration, System.Action callback)
+    {
+        
+        float elapsed = 0f;
+
+        while (elapsed < duration)
+        {
+            elapsed += Time.deltaTime;
+            float t = Mathf.SmoothStep(0f, 1f, elapsed / duration); // movimento morbido
+            targetBox.gameObject.transform.position = Vector3.Lerp(firstPos, secondPos, t);
+
+            yield return null;
+        }
+       callback?.Invoke();  
+    }
+
+   public IEnumerator PlayAnimations(Box targetBox, string animation, System.Action callback)
+    {
+        Animation anim = targetBox.GetComponent<Animation>();
+        anim.Play(animation);
+        yield return new WaitForSeconds(anim[animation].length * 1f);
+          callback?.Invoke();
+    }
+
+    public void putAllBlack()
+    {
+        foreach (ArtCard card in Resources.FindObjectsOfTypeAll<ArtCard>())
+        {
+            card.ChangeColor(Color.black);
+            card.isBlack = true;
+        }
+    }
+
 }
 
         

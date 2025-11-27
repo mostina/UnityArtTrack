@@ -7,6 +7,13 @@ public class PanelAnimationScale : MonoBehaviour
 {
     public RectTransform panelRect;
     public float duration = 0.3f;
+    public GameManager gameManager;
+
+    public void Start()
+    {
+
+        gameManager = FindFirstObjectByType<GameManager>();
+    }
 
     public void ShowPanel()
     {
@@ -29,10 +36,19 @@ public class PanelAnimationScale : MonoBehaviour
 
     public void HidePanel()
     {
-        StartCoroutine(ScaleOut());
+        StartCoroutine(ScaleOut(() => {
+
+           StartCoroutine(gameManager.PlayAnimations(gameManager.boxClicked, "close box", () =>
+           {
+               StartCoroutine(gameManager.MoveBoxForAnimation(gameManager.boxClicked, gameManager.VectorPosition(), gameManager.saveBoxPosition, 2f, () =>
+               {
+                   Debug.Log("");
+               }));
+           }));
+        }));
     }
 
-    IEnumerator ScaleOut()
+    IEnumerator ScaleOut(System.Action callback)
     {
         float elapsed = 0f;
         Vector3 startScale = panelRect.localScale; 
@@ -44,5 +60,6 @@ public class PanelAnimationScale : MonoBehaviour
         }
         panelRect.localScale = Vector3.zero;
         panelRect.gameObject.SetActive(false);
+        callback?.Invoke();
     }
 }
